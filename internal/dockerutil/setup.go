@@ -69,11 +69,11 @@ func DockerSetup(t DockerSetupTestingT) (*client.Client, string) {
 	}
 
 	// Clean up docker resources at end of test.
-	t.Cleanup(dockerCleanup(t, cli))
+	// t.Cleanup(dockerCleanup(t, cli))
 
 	// Also eagerly clean up any leftover resources from a previous test run,
 	// e.g. if the test was interrupted.
-	dockerCleanup(t, cli)()
+	// dockerCleanup(t, cli)()
 
 	name := fmt.Sprintf("interchaintest-%s", RandLowerCaseLetterString(8))
 	network, err := cli.NetworkCreate(context.TODO(), name, types.NetworkCreate{
