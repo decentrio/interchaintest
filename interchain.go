@@ -330,16 +330,10 @@ func (ic *Interchain) Build(ctx context.Context, rep *testreporter.RelayerExecRe
 	return eg.Wait()
 }
 
-func (ic *Interchain) BuildRelayer(ctx context.Context, rep *testreporter.RelayerExecReporter, opts InterchainBuildOptions, chainA ibc.Chain, chainB ibc.Chain) error {
+func (ic *Interchain) BuildRelayer(ctx context.Context, rep *testreporter.RelayerExecReporter, chainA ibc.Chain, chainB ibc.Chain) error {
 	if err := ic.configureRelayerKeys(ctx, rep); err != nil {
 		// Error already wrapped with appropriate detail.
 		return err
-	}
-
-	// Some tests may want to configure the relayer from a lower level,
-	// but still have wallets configured.
-	if opts.SkipPathCreation {
-		return nil
 	}
 
 	// For every relayer link, teach the relayer about the link and create the link.
