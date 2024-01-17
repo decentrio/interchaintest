@@ -330,6 +330,77 @@ func (ic *Interchain) Build(ctx context.Context, rep *testreporter.RelayerExecRe
 	return eg.Wait()
 }
 
+func (ic *Interchain) BuildRelayer(ctx context.Context, rep *testreporter.RelayerExecReporter, opts InterchainBuildOptions, chainA ibc.Chain, chainB ibc.Chain) error {
+	if err := ic.configureRelayerKeys(ctx, rep); err != nil {
+		// Error already wrapped with appropriate detail.
+		return err
+	}
+
+	// Some tests may want to configure the relayer from a lower level,
+	// but still have wallets configured.
+	if opts.SkipPathCreation {
+		return nil
+	}
+
+	// For every relayer link, teach the relayer about the link and create the link.
+	for rp, link := range ic.links {
+		rp := rp
+		link := link
+		c0 := link.chains[0]
+		c1 := link.chains[1]
+
+		if err := rp.Relayer.GeneratePath(ctx, rep, c0.Config().ChainID, c1.Config().ChainID, rp.Path); err != nil {
+			return fmt.Errorf(
+				"failed to generate path %s on relayer %s between chains %s and %s: %w",
+				rp.Path, rp.Relayer, ic.chains[c0], ic.chains[c1], err,
+			)
+		}
+	}
+
+	// Now link the paths in parallel
+	// Creates clients, connections, and channels for each link/path.
+	var eg errgroup.Group
+	for rp, link := range ic.links {
+		rp := rp
+		link := link
+		c0 := link.chains[0]
+		c1 := link.chains[1]
+		eg.Go(func() error {
+			// If the user specifies a zero value CreateClientOptions struct then we fall back to the default
+			// client options.
+			if link.createClientOpts == (ibc.CreateClientOptions{}) {
+				link.createClientOpts = ibc.DefaultClientOpts()
+			}
+
+			// Check that the client creation options are valid and fully specified.
+			if err := link.createClientOpts.Validate(); err != nil {
+				return err
+			}
+
+			// If the user specifies a zero value CreateChannelOptions struct then we fall back to the default
+			// channel options for an ics20 fungible token transfer channel.
+			if link.createChannelOpts == (ibc.CreateChannelOptions{}) {
+				link.createChannelOpts = ibc.DefaultChannelOpts()
+			}
+
+			// Check that the channel creation options are valid and fully specified.
+			if err := link.createChannelOpts.Validate(); err != nil {
+				return err
+			}
+
+			if err := rp.Relayer.LinkPath(ctx, rep, rp.Path, link.createChannelOpts, link.createClientOpts); err != nil {
+				return fmt.Errorf(
+					"failed to link path %s on relayer %s between chains %s and %s: %w",
+					rp.Path, rp.Relayer, ic.chains[c0], ic.chains[c1], err,
+				)
+			}
+			return nil
+		})
+	}
+
+	return eg.Wait()
+}
+
 // WithLog sets the logger on the interchain object.
 // Usually the default nop logger is fine, but sometimes it can be helpful
 // to see more verbose logs, typically by passing zaptest.NewLogger(t).
