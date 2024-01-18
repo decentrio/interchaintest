@@ -331,10 +331,6 @@ func (ic *Interchain) Build(ctx context.Context, rep *testreporter.RelayerExecRe
 }
 
 func (ic *Interchain) BuildRelayer(ctx context.Context, rep *testreporter.RelayerExecReporter) error {
-	chains := make([]ibc.Chain, 0, len(ic.chains))
-	for chain := range ic.chains {
-		chains = append(chains, chain)
-	}
 	err := ic.generateRelayerWallets(ctx) // Build the relayer wallet mapping.
 	if err != nil {
 		return err
