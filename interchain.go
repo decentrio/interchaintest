@@ -330,7 +330,28 @@ func (ic *Interchain) Build(ctx context.Context, rep *testreporter.RelayerExecRe
 	return eg.Wait()
 }
 
-func (ic *Interchain) BuildRelayer(ctx context.Context, rep *testreporter.RelayerExecReporter, chainA ibc.Chain, chainB ibc.Chain) error {
+func (ic *Interchain) BuildRelayer(ctx context.Context, rep *testreporter.RelayerExecReporter) error {
+	chains := make([]ibc.Chain, 0, len(ic.chains))
+	for chain := range ic.chains {
+		chains = append(chains, chain)
+	}
+	err := ic.generateRelayerWallets(ctx) // Build the relayer wallet mapping.
+	if err != nil {
+		return err
+	}
+
+	for rc, wallet := range ic.relayerWallets {
+		c := rc.C
+		err = c.SendFunds(ctx, FaucetAccountKeyName, ibc.WalletAmount{
+			Address: wallet.FormattedAddress(),
+			Amount:  math.NewInt(1_000_000_000_000),
+			Denom:   c.Config().Denom,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to get funds from faucet: %w", err)
+		}
+	}
+
 	if err := ic.configureRelayerKeys(ctx, rep); err != nil {
 		// Error already wrapped with appropriate detail.
 		return err
